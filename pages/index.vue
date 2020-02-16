@@ -1,72 +1,109 @@
 <template>
-  <div class="container">
-    <div>
-      <logo />
-      <h1 class="title">
-        controlcloud-dashboard
-      </h1>
-      <h2 class="subtitle">
-        Control Cloud Dashboard
-      </h2>
-      <div class="links">
-        <a
-          href="https://nuxtjs.org/"
-          target="_blank"
-          class="button--green"
-        >
-          Documentation
-        </a>
-        <a
-          href="https://github.com/nuxt/nuxt.js"
-          target="_blank"
-          class="button--grey"
-        >
-          GitHub
-        </a>
-      </div>
-    </div>
-  </div>
+  <b-container class="mt-3">
+    <b-row>
+      <component v-for="device in devices" :key="device.deviceid" v-if="isComponentForDeviceType(device.type)"
+                 :is="deviceTypeToComponentName(device.type)" :device="device" />
+    </b-row>
+  </b-container>
 </template>
 
-<script>
-import Logo from '~/components/Logo.vue'
+<script lang="ts">
+  import Vue from 'vue'
+  import Component from 'vue-class-component'
+  import SocketIO from 'socket.io-client'
+  import WidgetSwitch from '~/components/widgets/Switch.vue'
+  import WidgetShutter from '~/components/widgets/Shutter.vue'
+  import WidgetHeating from '~/components/widgets/Heating.vue'
 
-export default {
-  components: {
-    Logo
+  interface Device {
+    certarn: string
+    certid: string
+    connection: boolean
+    createdAt: string
+    deviceid: string
+    fw_version: string
+    location: Object
+    mac: string
+    name: string
+    state: { desired: Object, reported: Object }
+    type: string
+    users: []
   }
-}
+
+  interface DeviceStatus {
+    deviceid: string
+    connection?: boolean
+    state?: {
+      desired?: Object
+      reported?: Object
+    }
+  }
+
+  @Component({
+    name: 'PageIndex',
+    components: {
+      WidgetSwitch,
+      WidgetSwitch1: WidgetSwitch,
+      WidgetThermy: WidgetSwitch,
+      WidgetShutter,
+      WidgetHeating,
+      WidgetHeating1: WidgetHeating
+    }
+  })
+  export default class PageIndex extends Vue {
+    private socket?: SocketIOClient.Socket
+    private devices: Device[] = []
+
+    async mounted() {
+      this.socket = SocketIO.connect('https://api.controlcloud.io/')
+
+      this.socket.on('connect', this.authSocket)
+      this.socket.on('reconnect', this.authSocket)
+      // this.socket.on('unauthorized', () => {})
+      this.socket.on('deviceStatus', this.deviceStatus)
+
+      await this.$nextTick()
+      this.devices = await this.$axios.$get<Device[]>(this.$auth.signUrl('/user/devices'))
+    }
+
+    beforeDestroy() {
+      this.socket?.close()
+    }
+
+    private authSocket() {
+      this.socket?.emit('authenticate', this.$auth.socketCreds)
+    }
+
+    private deviceStatus(status: DeviceStatus) {
+      const device = this.devices.find(item => item.deviceid === status.deviceid)
+
+      if(!device) {
+        return
+      }
+
+      if(status.connection !== undefined) {
+        device.connection = status.connection
+      }
+
+      if(status.state?.desired) {
+        device.state.desired = status.state.desired
+      }
+
+      if(status.state?.reported) {
+        device.state.reported = status.state.reported
+      }
+    }
+
+    private deviceTypeToComponentName(type: string) {
+      return 'Widget' + type.charAt(0).toUpperCase() + type.slice(1)
+    }
+
+    private isComponentForDeviceType(type: string) {
+      return this.deviceTypeToComponentName(type) in (this.$options.components || {})
+    }
+  }
 </script>
 
-<style>
-.container {
-  margin: 0 auto;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
+<style scoped>
 
-.title {
-  font-family: 'Quicksand', 'Source Sans Pro', -apple-system, BlinkMacSystemFont,
-    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  display: block;
-  font-weight: 300;
-  font-size: 100px;
-  color: #35495e;
-  letter-spacing: 1px;
-}
-
-.subtitle {
-  font-weight: 300;
-  font-size: 42px;
-  color: #526488;
-  word-spacing: 5px;
-  padding-bottom: 15px;
-}
-
-.links {
-  padding-top: 15px;
-}
 </style>
