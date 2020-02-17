@@ -1,6 +1,8 @@
-# controlcloud-dashboard
+# Control Cloud Dashboard
 
-> Control Cloud Dashboard
+![Screenshot](/docs/ccdashboard_Safari.png)
+
+This application provides a user interface for the Control Cloud smart home system. Users can log in to their account, see an overview of their devices and interact with them (turn on/off, change temperature, etc.). Data is updated in real time over WebSocket protocol.
 
 ## Build Setup
 
